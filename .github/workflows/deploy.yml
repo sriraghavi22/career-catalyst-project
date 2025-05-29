@@ -9,25 +9,86 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Deploy to EC2
-      env:
-        EC2_HOST: ${{ secrets.EC2_HOST }}
-        EC2_USER: ubuntu
-        EC2_KEY: ${{ secrets.EC2_KEY }}
-      run: |
-        echo "$EC2_KEY" > key.pem
-        chmod 400 key.pem
-        ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
-          cd ~/career-catalyst-project/backend-flask
-          git pull origin main
-          source venv/bin/activate
-          pip install --no-cache-dir -r requirements.txt --index-url https://download.pytorch.org/whl/cpu
-          python -m spacy download en_core_web_sm
-          pkill gunicorn
-          nohup gunicorn --config gunicorn_config.py app:app &
-          sudo systemctl restart nginx
-        EOF
-        rm key.pem
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ubuntu
+          EC2_KEY: ${{ secrets.EC2_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.TOKEN_GITHUB }}  # Map TOKEN_GITHUB to GITHUB_TOKEN
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+        run: |
+          echo "$EC2_KEY" > key.pem
+          chmod 400 key.pem
+          
+          # Test SSH connection before proceeding
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST 'echo "SSH connection successful"' || { echo "SSH connection failed"; exit 1; }
+
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
+              # Navigate to project directory
+              cd ~/projects/career-catalyst-project/backend-flask || { echo "Failed to navigate to project directory"; exit 1; }
+              
+              # Pull the latest code
+              git pull origin main || { echo "Git pull failed"; exit 1; }
+              
+              # Activate virtual environment
+              source venv/bin/activate || { echo "Failed to activate virtual environment"; exit 1; }
+              
+              # Install dependencies
+              pip install --no-cache-dir -r requirements.txt --index-url https://download.pytorch.org/whl/cpu || { echo "Failed to install dependencies"; exit 1; }
+              python -m spacy download en_core_web_sm || { echo "Failed to download spacy model"; exit 1; }
+              
+              # Create or overwrite .env file with specified environment variables
+              cat > .env << 'ENV_EOF'
+              GOOGLE_API_KEY=$GOOGLE_API_KEY
+              GITHUB_TOKEN=$GITHUB_TOKEN
+              CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY
+              CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET
+              CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME
+              ENV_EOF
+              
+              # Kill existing Gunicorn processes
+              pkill -9 gunicorn || true
+              
+              # Ensure port 5001 is free
+              sudo fuser -k 5001/tcp || true
+              
+              # Start Gunicorn in background and detach
+              nohup gunicorn --config gunicorn_config.py app:app > nohup.out 2>&1 &
+              disown
+              
+              # Wait for Gunicorn to start with retry logic
+              for i in {1..5}; do
+                sleep 2
+                if ps aux | grep -v grep | grep gunicorn > /dev/null; then
+                  echo "Gunicorn started successfully"
+                  break
+                fi
+                if [ $i -eq 5 ]; then
+                  echo "Error: Gunicorn failed to start after retries"
+                  cat nohup.out  # Log Gunicorn output for debugging
+                  exit 1
+                fi
+              done
+              
+              # Restart Nginx
+              sudo systemctl restart nginx || { echo "Failed to restart Nginx"; exit 1; }
+              
+              # Final verification of Gunicorn
+              if ps aux | grep -v grep | grep gunicorn > /dev/null; then
+                echo "Deployment completed successfully"
+                exit 0
+              else
+                echo "Error: Gunicorn not running after deployment"
+                cat nohup.out  # Log Gunicorn output for debugging
+                exit 1
+              fi
+          EOF
+          
+          # Clean up
+          rm -f key.pem
