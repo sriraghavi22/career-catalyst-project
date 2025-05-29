@@ -30,8 +30,8 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST 'echo "SSH connection successful"' || { echo "SSH connection failed"; exit 1; }
 
           ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
-              # Navigate to project directory
-              cd ~/projects/career-catalyst-project/backend-flask || { echo "Failed to navigate to project directory"; exit 1; }
+              # Navigate to project directory (fixed path)
+              cd ~/career-catalyst-project/backend-flask || { echo "Failed to navigate to project directory"; exit 1; }
               
               # Pull the latest code
               git pull origin main || { echo "Git pull failed"; exit 1; }
