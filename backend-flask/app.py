@@ -40,9 +40,12 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app, resources={
     r"/*": {
-        "origins": ["http://localhost:5173", "https://career-catalyst-project.vercel.app"],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"],
+        "origins": [
+            "http://localhost:5173",
+            "https://career-catalyst-project.vercel.app"
+        ],
+        "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],  
+        "allow_headers": ["Content-Type", "Authorization"],  
         "expose_headers": ["X-Report-FilePath"],
         "supports_credentials": True
     }
