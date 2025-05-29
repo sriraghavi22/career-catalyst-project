@@ -18,7 +18,7 @@ jobs:
           EC2_USER: ubuntu
           EC2_KEY: ${{ secrets.EC2_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.TOKEN_GITHUB }}  # Map TOKEN_GITHUB to GITHUB_TOKEN
+          GITHUB_TOKEN: ${{ secrets.TOKEN_GITHUB }}
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
@@ -30,7 +30,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST 'echo "SSH connection successful"' || { echo "SSH connection failed"; exit 1; }
 
           ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
-              # Navigate to project directory (fixed path)
+              # Navigate to project directory
               cd ~/career-catalyst-project/backend-flask || { echo "Failed to navigate to project directory"; exit 1; }
               
               # Pull the latest code
@@ -44,13 +44,13 @@ jobs:
               python -m spacy download en_core_web_sm || { echo "Failed to download spacy model"; exit 1; }
               
               # Create or overwrite .env file with specified environment variables
-              cat > .env << 'ENV_EOF'
-              GOOGLE_API_KEY=$GOOGLE_API_KEY
-              GITHUB_TOKEN=$GITHUB_TOKEN
-              CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY
-              CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET
-              CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME
-              ENV_EOF
+              cat > .env << ENV_EOF
+GOOGLE_API_KEY=$GOOGLE_API_KEY
+GITHUB_TOKEN=$GITHUB_TOKEN
+CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY
+CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET
+CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME
+ENV_EOF
               
               # Kill existing Gunicorn processes
               pkill -9 gunicorn || true
@@ -71,7 +71,7 @@ jobs:
                 fi
                 if [ $i -eq 5 ]; then
                   echo "Error: Gunicorn failed to start after retries"
-                  cat nohup.out  # Log Gunicorn output for debugging
+                  cat nohup.out
                   exit 1
                 fi
               done
@@ -85,7 +85,7 @@ jobs:
                 exit 0
               else
                 echo "Error: Gunicorn not running after deployment"
-                cat nohup.out  # Log Gunicorn output for debugging
+                cat nohup.out
                 exit 1
               fi
           EOF
