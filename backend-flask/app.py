@@ -21,9 +21,10 @@ from io import BytesIO
 import time
 import tempfile
 
+# Configure environment and logging
 load_dotenv()
-
-# Test ci/cd
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # Configure Cloudinary
 config(
@@ -32,10 +33,6 @@ config(
     api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
     secure=True
 )
-
-# Set up logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app, resources={
@@ -56,6 +53,7 @@ matcher = ResumeJobMatcher()
 
 report_bp = Blueprint('report', __name__, url_prefix='/report')
 
+# Existing helper functions (unchanged)
 def extract_pdf_text_and_links(pdf_file):
     logger.debug("Starting PDF text and hyperlink extraction")
     try:
@@ -92,119 +90,6 @@ def get_github_token():
     if not token:
         raise ValueError("GitHub token not found in environment variables")
     return token
-
-def github_api_request(endpoint, token, params=None):
-    base_url = "https://api.github.com"
-    headers = {"Authorization": f"Bearer {token}", "User-Agent": "Mozilla/5.0"}
-    response = requests.get(f"{base_url}{endpoint}", headers=headers, params=params)
-    remaining = response.headers.get("X-RateLimit-Remaining")
-    logger.debug(f"Rate limit remaining: {remaining}")
-    if response.status_code == 403:
-        raise Exception("Rate limit exceeded or insufficient permissions.")
-    if response.status_code != 200:
-        raise Exception(f"API request failed with status {response.status_code}: {response.text}")
-    return response.json()
-
-def fetch_commit_count(username, repo_name, token):
-    commit_count = 0
-    page = 1
-    while True:
-        try:
-            commits = github_api_request(
-                f"/repos/{username}/{repo_name}/commits",
-                token,
-                params={"per_page": 100, "page": page}
-            )
-            # Filter commits by the user's GitHub ID
-            for commit in commits:
-                author = commit.get("author")
-                if author and author.get("login") == username:
-                    commit_count += 1
-                # Fallback: check commit.author.name if author is None
-                elif not author and commit.get("commit", {}).get("author", {}).get("name") == username:
-                    commit_count += 1
-            if len(commits) < 100:  # No more commits to fetch
-                break
-            page += 1
-            time.sleep(0.1)  # Avoid hitting rate limits
-        except Exception as e:
-            logger.error(f"Error fetching commits for repo {repo_name}: {e}")
-            break
-    logger.debug(f"User {username} made {commit_count} commits in repo {repo_name}")
-    return commit_count
-
-def fetch_pull_request_count(username, repo_name, token):
-    pull_request_count = 0
-    page = 1
-    while True:
-        try:
-            pulls = github_api_request(
-                f"/repos/{username}/{repo_name}/pulls",
-                token,
-                params={"state": "all", "per_page": 100, "page": page}
-            )
-            # Filter pull requests by the user's GitHub ID
-            for pr in pulls:
-                if pr.get("user", {}).get("login") == username:
-                    pull_request_count += 1
-            if len(pulls) < 100:  # No more pull requests to fetch
-                break
-            page += 1
-            time.sleep(0.1)
-        except Exception as e:
-            logger.error(f"Error fetching pull requests for repo {repo_name}: {e}")
-            break
-    logger.debug(f"User {username} made {pull_request_count} pull requests in repo {repo_name}")
-    return pull_request_count
-
-def fetch_workflow_count(username, repo_name, token):
-    try:
-        workflows = github_api_request(
-            f"/repos/{username}/{repo_name}/actions/workflows",
-            token,
-            params={"per_page": 100}
-        )
-        return workflows.get("total_count", 0)
-    except Exception as e:
-        logger.error(f"Error fetching workflows for repo {repo_name}: {e}")
-        return 0
-
-def fetch_user_repositories(username, token):
-    logger.debug(f"Fetching repositories for username: {username}")
-    repos_data = github_api_request(f"/users/{username}/repos", token, params={"per_page": 100})
-    repositories = []
-    for repo in repos_data:
-        commit_count = fetch_commit_count(username, repo["name"], token)
-        pull_request_count = fetch_pull_request_count(username, repo["name"], token)
-        workflow_count = fetch_workflow_count(username, repo["name"], token)
-        repositories.append({
-            "Name": repo["name"],
-            "Language": repo["language"],
-            "Languages URL": repo["languages_url"],
-            "commit_count": commit_count,
-            "pull_request_count": pull_request_count,
-            "workflow_count": workflow_count,
-            "fork": repo["fork"]
-        })
-        logger.debug(f"Repo {repo['name']}: {commit_count} commits, {pull_request_count} PRs, {workflow_count} workflows by {username}")
-    return repositories
-def fetch_repository_languages(languages_url, token):
-    logger.debug(f"Fetching languages for URL: {languages_url}")
-    endpoint = languages_url.replace("https://api.github.com", "")
-    return github_api_request(endpoint, token)
-
-def analyze_languages(repositories, token):
-    languages_analysis = {}
-    for repo in repositories:
-        languages_url = repo.get("Languages URL")
-        if languages_url:
-            try:
-                languages_data = fetch_repository_languages(languages_url, token)
-                for language, bytes_written in languages_data.items():
-                    languages_analysis[language] = languages_analysis.get(language, 0) + bytes_written
-            except Exception as e:
-                logger.error(f"Error fetching languages for repo {repo.get('Name')}: {e}")
-    return languages_analysis
 
 def extract_github_id(resume_text):
     logger.debug(f"Extracting GitHub ID from resume text: {resume_text[:100]}...")
@@ -297,150 +182,203 @@ def section_header(pdf, title):
     pdf.cell(0, 10, title, ln=1, fill=True, align="C")
     pdf.ln(3)
 
+# Updated REST API function for workflows
+def fetch_workflow_count(owner, repo_name, token):
+    logger.debug(f"Fetching workflow count for {owner}/{repo_name}")
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.v3+json"}
+    url = f"https://api.github.com/repos/{owner}/{repo_name}/actions/workflows"
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            workflows = response.json().get("workflows", [])
+            return len(workflows)
+        else:
+            logger.error(f"Failed to fetch workflows for {owner}/{repo_name}: Status {response.status_code}")
+            return 0
+    except Exception as e:
+        logger.error(f"Error fetching workflows for {owner}/{repo_name}: {str(e)}")
+        return 0
+
+# Updated GraphQL function (added owner field)
+def fetch_github_data_graphql(username, token):
+    logger.debug(f"Fetching GitHub data for {username} using GraphQL")
+    query = """
+    query($username: String!) {
+      user(login: $username) {
+        id
+        login
+        repositories(first: 100, affiliations: [OWNER, COLLABORATOR]) {
+          totalCount
+          nodes {
+            name
+            isFork
+            owner {
+              login
+            }
+            languages(first: 10) {
+              edges {
+                node { name }
+                size
+              }
+            }
+            defaultBranchRef {
+              target {
+                ... on Commit {
+                  history(first: 100) {
+                    totalCount
+                    nodes {
+                      author {
+                        user {
+                          login
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            pullRequests(first: 100, states: [OPEN, CLOSED, MERGED]) {
+              totalCount
+              nodes {
+                author {
+                  login
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    headers = {"Authorization": f"Bearer {token}"}
+    response = requests.post(
+        "https://api.github.com/graphql",
+        json={"query": query, "variables": {"username": username}},
+        headers=headers,
+        timeout=10
+    )
+    if response.status_code != 200:
+        logger.error(f"GraphQL request failed: {response.text}")
+        raise Exception(f"GraphQL request failed: Status {response.status_code}")
+    data = response.json()
+    if "errors" in data:
+        logger.error(f"GraphQL errors: {data['errors']}")
+        raise Exception(f"GraphQL errors: {data['errors']}")
+    logger.debug(f"GraphQL response: {json.dumps(data, indent=2)[:200]}...")
+    return data
+
 @report_bp.route('/generate-report', methods=['POST'])
 def generate_report():
-    logger.debug(f"Entering /report/generate-report endpoint")
-    logger.debug(f"Request method: {request.method}, Headers: {request.headers}")
-    
-    # Log the incoming request data
+    logger.debug("Entering /report/generate-report endpoint")
     data = request.get_json()
-    logger.debug(f"Request JSON data: {data}")
-    
-    # Validate input parameters
     resume_file_path = data.get('resumeFilePath')
     min_salary = data.get('min_salary')
     max_salary = data.get('max_salary')
-    logger.debug(f"Input parameters - resume_file_path: {resume_file_path}, min_salary: {min_salary}, max_salary: {max_salary}")
 
     if not resume_file_path:
         logger.error("Missing resumeFilePath in request")
         return jsonify({"error": "resumeFilePath is required"}), 400
-
     if min_salary is None or max_salary is None:
         logger.error("Missing min_salary or max_salary in request")
         return jsonify({"error": "Both min_salary and max_salary are required"}), 400
-
     if min_salary >= max_salary:
         logger.error("Invalid salary range: min_salary must be less than max_salary")
         return jsonify({"error": "min_salary must be less than max_salary"}), 400
 
     try:
-        logger.debug("Starting resume file validation")
-        if not resume_file_path.startswith('https://res.cloudinary.com'):
-            logger.error(f"Invalid Cloudinary URL: {resume_file_path}")
-            return jsonify({"error": "Invalid resume file path"}), 400
-
         # Fetch resume from Cloudinary
-        logger.debug(f"Attempting to fetch resume from URL: {resume_file_path}")
+        logger.debug(f"Fetching resume from {resume_file_path}")
         resume_response = requests.get(resume_file_path, timeout=10)
-        logger.debug(f"Resume fetch response status: {resume_response.status_code}, Content-Length: {resume_response.headers.get('Content-Length', 'unknown')}")
-
         if resume_response.status_code != 200:
-            logger.error(f"Failed to fetch resume from {resume_file_path}: Status {resume_response.status_code}")
+            logger.error(f"Failed to fetch resume: Status {resume_response.status_code}")
             return jsonify({"error": "Failed to fetch resume", "details": f"Status {resume_response.status_code}"}), 400
 
-        # Extract text from PDF
-        logger.debug("Extracting text from resume PDF")
+        # Extract GitHub ID
         resume_text = extract_pdf_text_and_links(BytesIO(resume_response.content))
         if not resume_text:
             logger.error("No text extracted from resume PDF")
             return jsonify({"error": "Failed to extract text from resume"}), 400
-        logger.debug(f"Extracted resume text (first 100 chars): {resume_text[:100]}...")
-
-        # Extract GitHub ID
-        logger.debug("Extracting GitHub ID from resume text")
         github_id = extract_github_id(resume_text)
         if not github_id:
-            logger.error("No GitHub ID found in resume text")
+            logger.error("No GitHub ID found in resume")
             return jsonify({"error": "No GitHub ID found in resume"}), 400
         logger.debug(f"Extracted GitHub ID: {github_id}")
 
-        # Fetch GitHub data
-        logger.debug(f"Fetching GitHub token")
+        # Fetch GitHub data using GraphQL
         token = get_github_token()
-        logger.debug(f"Fetching repositories for GitHub user: {github_id}")
-        repositories = fetch_user_repositories(github_id, token)
-        logger.debug(f"Fetched {len(repositories)} repositories")
-        
-        logger.debug("Analyzing repository languages")
-        languages_analysis = analyze_languages(repositories, token)
-        logger.debug(f"Language analysis result: {languages_analysis}")
-
-        # Calculate summary statistics
+        github_data = fetch_github_data_graphql(github_id, token)
+        user_data = github_data["data"]["user"]
+        repositories = []
+        languages_analysis = {}
         summary_stats = {
-            "total_repositories": len(repositories),
-            "total_commits": sum(repo.get("commit_count", 0) for repo in repositories),
-            "total_pull_requests": sum(repo.get("pull_request_count", 0) for repo in repositories),
-            "total_workflows": sum(repo.get("workflow_count", 0) for repo in repositories)
+            "total_repositories": user_data["repositories"]["totalCount"],
+            "total_commits": 0,
+            "total_pull_requests": 0,
+            "total_workflows": 0
         }
-        logger.debug(f"Summary statistics: {summary_stats}")
 
-        # Process repository skills
-        all_repos_skills = {repo["Language"]: sum(1 for r in repositories if r["Language"] == repo["Language"]) for repo in repositories if repo["Language"]}
-        user_owned_repos = [repo for repo in repositories if not repo.get("fork", False)]
-        user_owned_repos_skills = {repo["Language"]: sum(1 for r in user_owned_repos if r["Language"] == repo["Language"]) for repo in user_owned_repos if repo["Language"]}
-        user_owned_repos_languages = {k: v for k, v in languages_analysis.items() if any(k == repo["Language"] for repo in user_owned_repos)}
-        logger.debug(f"All repos skills: {all_repos_skills}")
-        logger.debug(f"User-owned repos skills: {user_owned_repos_skills}")
-        logger.debug(f"User-owned repos languages: {user_owned_repos_languages}")
+        for repo in user_data["repositories"]["nodes"]:
+            # Count user-specific commits
+            commit_count = 0
+            if repo["defaultBranchRef"] and repo["defaultBranchRef"]["target"]:
+                for commit in repo["defaultBranchRef"]["target"]["history"]["nodes"]:
+                    if commit["author"] and commit["author"]["user"] and commit["author"]["user"]["login"] == github_id:
+                        commit_count += 1
+            # Count user-specific pull requests
+            pr_count = sum(1 for pr in repo["pullRequests"]["nodes"] if pr["author"] and pr["author"]["login"] == github_id)
+            # Fetch workflow count using REST API
+            workflow_count = fetch_workflow_count(repo["owner"]["login"], repo["name"], token)
+            primary_language = repo["languages"]["edges"][0]["node"]["name"] if repo["languages"]["edges"] else None
+            summary_stats["total_commits"] += commit_count
+            summary_stats["total_pull_requests"] += pr_count
+            summary_stats["total_workflows"] += workflow_count
+            repositories.append({
+                "Name": repo["name"],
+                "Language": primary_language,
+                "fork": repo["isFork"],
+                "commit_count": commit_count,
+                "pull_request_count": pr_count,
+                "workflow_count": workflow_count
+            })
+            for lang in repo["languages"]["edges"]:
+                lang_name = lang["node"]["name"]
+                lang_size = lang["size"]
+                languages_analysis[lang_name] = languages_analysis.get(lang_name, 0) + lang_size
 
-        # Compute ratings
-        logger.debug("Computing GitHub rating")
+        logger.debug(f"Repositories: {len(repositories)}, Languages: {languages_analysis}, Summary: {summary_stats}")
+
+        # Calculate ratings
         github_rating = compute_github_rating({"summary_statistics": summary_stats})
-        logger.debug(f"GitHub rating: {github_rating}")
         offered_salary = map_rating_to_salary(github_rating, min_salary, max_salary)
         overall_rating = github_rating
-        logger.debug(f"Offered salary: {offered_salary}, Overall rating: {overall_rating}")
+        logger.debug(f"GitHub rating: {github_rating}, Offered salary: {offered_salary}")
 
         # Generate PDF
-        logger.debug("Initializing PDF generation")
         pdf = PDFReport()
         pdf.add_page()
         pdf.set_auto_page_break(auto=True, margin=20)
-        logger.debug("PDF page added")
-
         pdf.set_font("helvetica", "", 12)
         pdf.cell(0, 10, f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=1, align="C")
         pdf.ln(5)
 
         # GitHub Summary Statistics
-        logger.debug("Adding GitHub Summary Statistics section")
         section_header(pdf, "GitHub Summary Statistics")
         pdf.set_text_color(0, 0, 0)
-        pdf.cell(0, 8, f"Total Repositories: {summary_stats['total_repositories']}", ln=1)
-        pdf.cell(0, 8, f"Total Commits: {summary_stats['total_commits']}", ln=1)
-        pdf.cell(0, 8, f"Total Pull Requests: {summary_stats['total_pull_requests']}", ln=1)
-        pdf.cell(0, 8, f"Total Workflows: {summary_stats['total_workflows']}", ln=1)
+        for key, value in summary_stats.items():
+            pdf.cell(0, 8, f"{key.replace('_', ' ').title()}: {value}", ln=1)
         pdf.ln(5)
 
         # Skills Analysis (All Repositories)
-        logger.debug("Adding Skills Analysis (All Repositories) section")
+        all_repos_skills = {repo["Language"]: sum(1 for r in repositories if r["Language"] == repo["Language"]) for repo in repositories if repo["Language"]}
         section_header(pdf, "Skills Analysis (All Repositories)")
         pdf.set_text_color(0, 0, 0)
         for skill, count in all_repos_skills.items():
             pdf.cell(0, 8, f"{skill}: {count} repositories", ln=1)
         pdf.ln(5)
 
-        # Languages Used (All Repositories)
-        logger.debug("Adding Languages Used (All Repositories) section")
-        section_header(pdf, "Languages Used (All Repositories)")
-        pdf.set_text_color(0, 0, 0)
-        if languages_analysis:
-            pdf.set_font("helvetica", "B", 12)
-            pdf.cell(0, 8, "Language Distribution:", ln=1)
-            pdf.ln(5)
-            max_bytes = max(languages_analysis.values())
-            current_y = pdf.get_y()
-            for lang, bytes_written in sorted(languages_analysis.items(), key=lambda x: x[1], reverse=True):
-                logger.debug(f"Drawing language bar for {lang}: {bytes_written} bytes")
-                current_y = draw_language_bar(pdf, lang, bytes_written, max_bytes, current_y)
-        else:
-            pdf.cell(0, 8, "No data available.", ln=1)
-        pdf.ln(5)
-
         # Skills Analysis (User-Owned Repositories)
-        logger.debug("Adding Skills Analysis (User-Owned Repositories) section")
-        pdf.add_page()
+        user_owned_repos = [repo for repo in repositories if not repo.get("fork", False)]
+        user_owned_repos_skills = {repo["Language"]: sum(1 for r in user_owned_repos if r["Language"] == repo["Language"]) for repo in user_owned_repos if repo["Language"]}
         section_header(pdf, "Skills Analysis (User-Owned Repositories)")
         pdf.set_text_color(0, 0, 0)
         for skill, count in user_owned_repos_skills.items():
@@ -448,7 +386,7 @@ def generate_report():
         pdf.ln(5)
 
         # Languages Used (User-Owned Repositories)
-        logger.debug("Adding Languages Used (User-Owned Repositories) section")
+        user_owned_repos_languages = {k: v for k, v in languages_analysis.items() if any(k == repo["Language"] for repo in user_owned_repos)}
         section_header(pdf, "Languages Used (User-Owned Repositories)")
         pdf.set_text_color(0, 0, 0)
         if user_owned_repos_languages:
@@ -458,14 +396,12 @@ def generate_report():
             max_bytes = max(user_owned_repos_languages.values())
             current_y = pdf.get_y()
             for lang, bytes_written in sorted(user_owned_repos_languages.items(), key=lambda x: x[1], reverse=True):
-                logger.debug(f"Drawing language bar for {lang}: {bytes_written} bytes")
                 current_y = draw_language_bar(pdf, lang, bytes_written, max_bytes, current_y)
         else:
             pdf.cell(0, 8, "No data available.", ln=1)
         pdf.ln(5)
 
         # Candidate Evaluation
-        logger.debug("Adding Candidate Evaluation section")
         section_header(pdf, "Candidate Evaluation")
         pdf.set_text_color(0, 0, 0)
         pdf.set_font("helvetica", "", 12)
@@ -473,70 +409,45 @@ def generate_report():
         pdf.cell(0, 8, f"Suggested Salary: {offered_salary:.2f} LPA", ln=1)
         pdf.cell(0, 8, f"Overall Rating: {overall_rating:.2f}/10", ln=1)
 
-        # Save PDF to temporary file
-        logger.debug("Saving PDF to temporary file")
+        # Save and upload PDF
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
             pdf.output(temp_file.name)
             temp_file_path = temp_file.name
             temp_file_size = os.path.getsize(temp_file_path)
             logger.debug(f"Temporary PDF created at {temp_file_path}, size: {temp_file_size} bytes")
 
-        # Verify temporary PDF
         if temp_file_size == 0:
             logger.error("Generated PDF is empty")
             os.unlink(temp_file_path)
             return jsonify({"error": "Failed to generate PDF: empty file"}), 500
 
-        # Upload to Cloudinary
         report_filename = f"report_{github_id}_{uuid.uuid4().hex[:8]}"
-        logger.debug(f"Uploading PDF to Cloudinary with public_id: {report_filename}")
-        try:
-            result = upload(
-                temp_file_path,
-                folder='reports',
-                public_id=report_filename,
-                resource_type='raw',
-                access_mode='public'
-            )
-            report_url = result['secure_url']
-            logger.debug(f"PDF uploaded to Cloudinary: {report_url}, size: {result.get('bytes', 'unknown')} bytes")
-        except Exception as e:
-            logger.error(f"Cloudinary upload failed: {str(e)}")
-            os.unlink(temp_file_path)
-            return jsonify({"error": "Failed to upload PDF to Cloudinary", "details": str(e)}), 500
-
-        # Clean up temporary file
-        logger.debug(f"Cleaning up temporary file: {temp_file_path}")
+        result = upload(
+            temp_file_path,
+            folder='reports',
+            public_id=report_filename,
+            resource_type='raw',
+            access_mode='public'
+        )
+        report_url = result['secure_url']
         os.unlink(temp_file_path)
+        logger.debug(f"PDF uploaded to Cloudinary: {report_url}")
 
         # Verify uploaded PDF
-        logger.debug(f"Verifying uploaded PDF at: {report_url}")
-        try:
-            pdf_response = requests.get(report_url, timeout=10)
-            logger.debug(f"PDF verification response status: {pdf_response.status_code}, Content-Type: {pdf_response.headers.get('Content-Type')}")
-            if pdf_response.status_code != 200 or pdf_response.headers.get('Content-Type') != 'application/pdf':
-                logger.error(f"Uploaded PDF is not accessible or invalid: {report_url}, Status: {pdf_response.status_code}, Content-Type: {pdf_response.headers.get('Content-Type')}")
-                return jsonify({"error": "Uploaded PDF is not accessible or invalid", "details": f"Status {pdf_response.status_code}"}), 500
-        except Exception as e:
-            logger.error(f"Failed to verify uploaded PDF: {str(e)}")
-            return jsonify({"error": "Failed to verify uploaded PDF", "details": str(e)}), 500
+        pdf_response = requests.get(report_url, timeout=10)
+        if pdf_response.status_code != 200 or pdf_response.headers.get('Content-Type') != 'application/pdf':
+            logger.error(f"Uploaded PDF invalid: Status {pdf_response.status_code}")
+            return jsonify({"error": "Uploaded PDF is not accessible or invalid"}), 500
 
-        # Prepare response
-        logger.debug(f"Preparing response with report URL: {report_url}")
         response = jsonify({"filePath": report_url})
         response.headers['X-Report-FilePath'] = report_url
         response.headers['Content-Disposition'] = f'attachment; filename="report_{github_id}.pdf"'
-        logger.debug(f"Response headers set: X-Report-FilePath={report_url}, Content-Disposition=attachment; filename=report_{github_id}.pdf")
         logger.debug("Report generation completed successfully")
         return response
 
     except Exception as e:
         logger.error(f"Unexpected error in generate_report: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
-
-@app.route('/')
-def home():
-    return {"message": "Welcome to Career Catalyst"}, 200
     
 @app.route('/upload_resume', methods=['POST'])
 def upload_resume():
