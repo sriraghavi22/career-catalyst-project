@@ -45,12 +45,12 @@ jobs:
               
               # Create or overwrite .env file with specified environment variables
               cat > .env << ENV_EOF
-GOOGLE_API_KEY=$GOOGLE_API_KEY
-GITHUB_TOKEN=$GITHUB_TOKEN
-CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY
-CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET
-CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME
-ENV_EOF
+              GOOGLE_API_KEY=$GOOGLE_API_KEY
+              GITHUB_TOKEN=$GITHUB_TOKEN
+              CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY
+              CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET
+              CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME
+              ENV_EOF
               
               # Kill existing Gunicorn processes
               pkill -9 gunicorn || true
