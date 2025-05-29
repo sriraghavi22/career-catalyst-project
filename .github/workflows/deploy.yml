@@ -1,0 +1,33 @@
+name: Deploy Flask App to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Deploy to EC2
+      env:
+        EC2_HOST: ${{ secrets.EC2_HOST }}
+        EC2_USER: ubuntu
+        EC2_KEY: ${{ secrets.EC2_KEY }}
+      run: |
+        echo "$EC2_KEY" > key.pem
+        chmod 400 key.pem
+        ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
+          cd ~/career-catalyst-project/backend-flask
+          git pull origin main
+          source venv/bin/activate
+          pip install --no-cache-dir -r requirements.txt --index-url https://download.pytorch.org/whl/cpu
+          python -m spacy download en_core_web_sm
+          pkill gunicorn
+          nohup gunicorn --config gunicorn_config.py app:app &
+          sudo systemctl restart nginx
+        EOF
+        rm key.pem
