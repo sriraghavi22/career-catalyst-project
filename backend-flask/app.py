@@ -23,6 +23,8 @@ import tempfile
 
 load_dotenv()
 
+# Test ci/cd
+
 # Configure Cloudinary
 config(
     cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
