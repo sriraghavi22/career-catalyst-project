@@ -26,50 +26,32 @@ jobs:
           echo "$EC2_KEY" > key.pem
           chmod 400 key.pem
 
-          # Test SSH connection
-          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST 'echo "SSH connection successful"' || { echo "SSH connection failed"; exit 1; }
-
-          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
-            # Navigate to project directory
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST <<EOF
             cd ~/career-catalyst-project/backend-flask || { echo "Failed to navigate to project directory"; exit 1; }
-
-            # Pull the latest code
             git pull origin main || { echo "Git pull failed"; exit 1; }
-
-            # Activate virtual environment
             source venv/bin/activate || { echo "Failed to activate virtual environment"; exit 1; }
-
-            # Install dependencies
             pip install --no-cache-dir -r requirements.txt --index-url https://download.pytorch.org/whl/cpu || { echo "Failed to install dependencies"; exit 1; }
             python -m spacy download en_core_web_sm || { echo "Failed to download spacy model"; exit 1; }
 
-            # Create or overwrite .env file with proper heredoc syntax
-            cat << ENV_EOF > .env
-            GOOGLE_API_KEY=${GOOGLE_API_KEY}
-            GITHUB_TOKEN=${GITHUB_TOKEN}
-            CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
-            CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
-            CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
-            ENV_EOF
+            # Write .env file
+            echo "GOOGLE_API_KEY=${GOOGLE_API_KEY}" > .env
+            echo "GITHUB_TOKEN=${GITHUB_TOKEN}" >> .env
+            echo "CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}" >> .env
+            echo "CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}" >> .env
+            echo "CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}" >> .env
 
-            # Verify .env file creation
             if [ ! -f .env ]; then
               echo "Error: .env file was not created"
               exit 1
             fi
-            cat .env  # Debug: show .env content
+            cat .env
 
-            # Kill existing Gunicorn processes
             pkill -9 gunicorn || true
-
-            # Ensure port 5001 is free
             sudo fuser -k 5001/tcp || true
 
-            # Start Gunicorn in background
             nohup gunicorn --config gunicorn_config.py app:app > nohup.out 2>&1 &
-            sleep 2  # Give Gunicorn time to start
+            sleep 2
 
-            # Verify Gunicorn is running
             if ps aux | grep -v grep | grep gunicorn > /dev/null; then
               echo "Gunicorn started successfully"
             else
@@ -78,10 +60,8 @@ jobs:
               exit 1
             fi
 
-            # Restart Nginx
             sudo systemctl restart nginx || { echo "Failed to restart Nginx"; exit 1; }
 
-            # Final verification
             if ps aux | grep -v grep | grep gunicorn > /dev/null; then
               echo "Deployment completed successfully"
               exit 0
@@ -91,6 +71,4 @@ jobs:
               exit 1
             fi
           EOF
-
-          # Clean up
           rm -f key.pem
