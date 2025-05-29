@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class ResumeJobMatcher:
     def __init__(self):
         # Load spaCy model
-        self.nlp = spacy.load('en_core_web_md')
+        self.nlp = spacy.load('en_core_web_sm')
         self.matcher = PhraseMatcher(self.nlp.vocab)
         # Expanded key phrases
         self.key_phrases = [

@@ -528,6 +528,10 @@ def generate_report():
     except Exception as e:
         logger.error(f"Unexpected error in generate_report: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+@app.route('/')
+def home():
+    return {"message": "Welcome to Career Catalyst"}, 200
     
 @app.route('/upload_resume', methods=['POST'])
 def upload_resume():
