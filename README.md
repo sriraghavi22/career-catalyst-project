@@ -1,6 +1,6 @@
 # CareerSync: Resume Analysis and Job Matching Platform
 
-CareerSync is a comprehensive platform designed to empower students, educational institutions, and organizations by providing advanced resume analysis, job matching, and talent scouting capabilities. Leveraging AI, web scraping, and NLP techniques, CareerSync streamlines the process of career development and recruitment.
+CareerSync is a comprehensive platform designed to empower students, educational institutions, and organizations by providing advanced resume analysis, job matching, and talent scouting capabilities. Leveraging AI , web scraping, and NLP techniques, CareerSync streamlines the process of career development and recruitment.
 
 ## 🚀 Features
 
