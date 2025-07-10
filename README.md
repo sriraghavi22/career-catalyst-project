@@ -58,7 +58,7 @@ Career Catalyst is a comprehensive platform designed to empower students, educat
 
 ### APIs & Tools
 - **Gemini API**: Powers resume analysis and scoring.
-- **Adzuna**: Scrapes LinkedIn for job listings and experience data.
+- **Adzuna**: Provides job listings and experience-related data via its public API.
 - **GitHub API**: Fetches repository statistics (commits, PRs, languages).
 - **NLP Techniques**:
   - Cosine similarity and keyword matching for job matching.
