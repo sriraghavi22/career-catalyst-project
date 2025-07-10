@@ -1,6 +1,6 @@
-# CareerSync: Resume Analysis and Job Matching Platform
+# Career Catalyst: Resume Analysis and Job Matching Platform
 
-CareerSync is a comprehensive platform designed to empower students, educational institutions, and organizations by providing advanced resume analysis, job matching, and talent scouting capabilities. Leveraging AI , web scraping, and NLP techniques, CareerSync streamlines the process of career development and recruitment.
+Career Catalyst is a comprehensive platform designed to empower students, educational institutions, and organizations by providing advanced resume analysis, job matching, and talent scouting capabilities. Leveraging AI , web scraping, and NLP techniques, Career Catalyst streamlines the process of career development and recruitment.
 
 ## 🚀 Features
 
@@ -11,19 +11,17 @@ CareerSync is a comprehensive platform designed to empower students, educational
   - Identification of key strengths and areas for improvement.
   - ATS optimization assessment with actionable feedback.
   - Personalized recommendations for courses and certifications.
-- **Job Matching**:
-  - Matches student resumes to relevant job profiles using NLP techniques (cosine similarity, keyword matching, weighted experience).
 - **LinkedIn Job Scraping**:
-  - Scrapes LinkedIn for job listings tailored to specific roles using Selenium.
+  - Scrapes LinkedIn for job listings tailored to specific roles using Adzuna.
 
 ### For Institutions
 - **Dashboard**:
   - Displays total students, active job listings, recent job matches, and student lists.
 - **Filtering**:
   - Filter students by branch, year, or search by name.
-- **Job Management**:
-  - Add job listings with details (title, description, branch, year).
-  - View student matches with match percentages calculated using NLP techniques.
+- **Job Matching**:
+  - Matches student resumes to relevant job profiles using NLP techniques (cosine similarity, keyword matching, weighted experience).
+
 
 ### For Organizations
 - **Student Discovery**:
@@ -32,6 +30,9 @@ CareerSync is a comprehensive platform designed to empower students, educational
   - Scrapes LinkedIn for professional experience data (via Selenium).
   - Fetches repository data (commits, PRs, language analysis) via GitHub API.
   - Aggregates data into comprehensive PDF reports using PyPDF2 and pdfplumber.
+- **Job Management**:
+  - Add job listings with details (title, description, branch, year).
+  - View student matches with match percentages calculated using NLP techniques.
 - **Salary Suggestion**:
   - Provides salary recommendations based on skill analysis, GitHub contributions, experience, and user-provided min/max salary inputs.
 
@@ -57,7 +58,7 @@ CareerSync is a comprehensive platform designed to empower students, educational
 
 ### APIs & Tools
 - **Gemini API**: Powers resume analysis and scoring.
-- **Selenium**: Scrapes LinkedIn for job listings and experience data.
+- **Adzuna**: Scrapes LinkedIn for job listings and experience data.
 - **GitHub API**: Fetches repository statistics (commits, PRs, languages).
 - **NLP Techniques**:
   - Cosine similarity and keyword matching for job matching.
