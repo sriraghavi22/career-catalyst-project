@@ -1,18 +1,18 @@
 # Career Catalyst: Resume Analysis and Job Matching Platform
 
-Career Catalyst is a comprehensive platform designed to empower students, educational institutions, and organizations by providing advanced resume analysis, job matching, and talent scouting capabilities. Leveraging AI , web scraping, and NLP techniques, Career Catalyst streamlines the process of career development and recruitment.
+Career Catalyst is a comprehensive platform designed to empower students, educational institutions, and organizations by providing advanced resume analysis, job matching, and talent scouting capabilities. Leveraging AI, web scraping, and NLP techniques, Career Catalyst streamlines the process of career development and recruitment.
 
 ## 🚀 Features
 
 ### For Students
 - **Resume Analysis** (via Gemini API):
-  - Resume score and ATS (Applicant Tracking System) optimization score.
+  - Resume and ATS (Applicant Tracking System) optimization scores.
   - Detailed analysis of professional profile, skills, experience, and education.
   - Identification of key strengths and areas for improvement.
   - ATS optimization assessment with actionable feedback.
   - Personalized recommendations for courses and certifications.
-- **LinkedIn Job Scraping**:
-  - Scrapes LinkedIn for job listings tailored to specific roles using Adzuna.
+- **Job Listings Integration**:  
+  - Retrieves real-time job listings tailored to specific roles using the Adzuna API.
 
 ### For Institutions
 - **Dashboard**:
@@ -22,12 +22,10 @@ Career Catalyst is a comprehensive platform designed to empower students, educat
 - **Job Matching**:
   - Matches student resumes to relevant job profiles using NLP techniques (cosine similarity, keyword matching, weighted experience).
 
-
 ### For Organizations
 - **Student Discovery**:
   - View students across institutions with advanced filtering options.
 - **Report Generation**:
-  - Scrapes LinkedIn for professional experience data (via Selenium).
   - Fetches repository data (commits, PRs, language analysis) via GitHub API.
   - Aggregates data into comprehensive PDF reports using PyPDF2 and pdfplumber.
 - **Job Management**:
@@ -40,12 +38,12 @@ Career Catalyst is a comprehensive platform designed to empower students, educat
 
 ### Frontend
 - **TypeScript**: For building a robust and scalable frontend.
-- **Hosted on Vercel**: For seamless deployment and scalability.
+- **Tailwind CSS**: For building a responsive, utility-first, and maintainable user interface.
 
 ### Backend
 - **Node.js + Express**: Core logic for handling API requests and business logic, hosted on Render.
 - **Flask**: Handles Python-related tasks, including Gemini API integration and web scraping.
-- **Database**: MongoDB for storing user data, resumes, and job listings.
+- **Database**: MongoDB for storing user data and job listings.
 - **File Handling**:
   - **Multer**: For handling resume uploads.
   - **Cloudinary**: For secure resume storage.
@@ -80,14 +78,14 @@ Career Catalyst is a comprehensive platform designed to empower students, educat
 - API keys for:
   - Gemini API
   - GitHub API
-  - LinkedIn scraping (Selenium setup)
+  - Adzuna API
 
 ## 🛠️ Installation
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/your-repo/careersync.git
-   cd careersync
+   git clone https://github.com/sriraghavi22/career-catalyst-project.git
+   cd career-catalyst-project
    ```
 
 2. **Frontend Setup**:
@@ -150,12 +148,12 @@ Career Catalyst is a comprehensive platform designed to empower students, educat
 
 ## 📂 Project Structure
 ```
-careersync/
-├── frontend/                # TypeScript frontend (Vercel)
+career-catalyst-project/
+├── project/                # TypeScript frontend (Vercel)
 ├── backend-node/           # Node.js + Express backend (Render)
-├── backend-flask/          # Flask backend for Python tasks
-├── docs/                   # Documentation and assets
+├── backend-flask/          # Flask backend for Python tasks                 
 └── README.md
+
 ```
 
 ## 👥 Contributors
@@ -164,5 +162,5 @@ This project was developed as a **collaborative group effort** by:
 
 - [K Sri Raghavi](https://github.com/sriraghavi22)
 - [A Abhijith Reddy](https://github.com/abhijithreddy05)
-- [CH Shriya](https://github.com/shriyacheruvu)
+- [Ch Shriya](https://github.com/shriyacheruvu)
 
