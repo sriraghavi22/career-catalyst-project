@@ -90,7 +90,7 @@ Career Catalyst is a comprehensive platform designed to empower students, educat
 
 2. **Frontend Setup**:
    ```bash
-   cd frontend
+   cd project
    npm install
    npm run dev
    ```
